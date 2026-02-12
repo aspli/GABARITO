@@ -43,9 +43,7 @@ def find_bubbles(edged_image, img_area):
 def smart_filter_columns(cnts):
     """
     ALGORITMO DE CLUSTERIZAÇÃO:
-    Em vez de cortar a imagem em %, agrupa os contornos por coordenadas X.
-    Esperamos encontrar 5 grandes grupos verticais (A, B, C, D, E).
-    O que sobrar (números à esquerda) é descartado.
+    Agrupa os contornos por coordenadas X para achar as colunas A, B, C, D, E.
     """
     if not cnts: return []
     
@@ -60,12 +58,11 @@ def smart_filter_columns(cnts):
     # 2. Ordena por X
     items.sort(key=lambda x: x[0])
     
-    # 3. Agrupa em clusters (se a distância X for pequena, é a mesma coluna)
+    # 3. Agrupa em clusters
     clusters = []
     current_cluster = [items[0]]
     
     for i in range(1, len(items)):
-        # Se a distância horizontal for maior que 15px, é uma nova coluna
         if items[i][0] - current_cluster[-1][0] > 15: 
             clusters.append(current_cluster)
             current_cluster = [items[i]]
@@ -73,22 +70,15 @@ def smart_filter_columns(cnts):
             current_cluster.append(items[i])
     clusters.append(current_cluster)
     
-    # 4. Filtra: Queremos as 5 colunas com mais elementos (as bolhas)
-    # Os números (27, 28...) formam uma coluna, mas geralmente com menos elementos ou posição errada.
-    # Mas o jeito mais seguro é: As 5 colunas mais à DIREITA são A, B, C, D, E.
-    
-    # Filtra clusters muito pequenos (ruído)
+    # 4. Filtra: Queremos as 5 colunas mais à DIREITA
     valid_clusters = [cl for cl in clusters if len(cl) > 3]
     
     if len(valid_clusters) < 5:
-        return [] # Falha na detecção
+        return [] 
         
-    # Pega os 5 clusters mais à direita (maior X)
-    # Isso garante que ignoramos os números na esquerda
-    valid_clusters.sort(key=lambda cl: cl[0][0]) # Ordena por posição X
-    final_5_cols = valid_clusters[-5:] # Pega os 5 últimos
+    valid_clusters.sort(key=lambda cl: cl[0][0]) 
+    final_5_cols = valid_clusters[-5:] 
     
-    # Reconstrói a lista de contornos limpa
     clean_cnts = []
     for cl in final_5_cols:
         for item in cl:
@@ -101,7 +91,7 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
     score = 0
     total = 0
     
-    # 1. Limpeza Inteligente (Clusterização)
+    # 1. Limpeza Inteligente
     bubbles = smart_filter_columns(all_cnts)
     
     if not bubbles:
@@ -113,7 +103,6 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
     max_x = max([b[0] for b in boxes])
     avg_w = np.mean([b[2] for b in boxes])
     
-    # Passo horizontal (distância entre centros de colunas)
     step_x = (max_x - min_x) / 4.0
     
     # 2. Agrupar em Linhas (Y)
@@ -137,7 +126,6 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
             (_, prev_y, _, _) = cv2.boundingRect(c)
     rows.append(current_row)
 
-    # Threshold para leitura de pixels
     thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
     
     q_nums = sorted(list(q_range))
@@ -147,7 +135,6 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
         q_num = q_nums[i]
         row_cnts = rows[i]
         
-        # Y médio da linha
         ys = [cv2.boundingRect(c)[1] for c in row_cnts]
         avg_y = int(np.mean(ys))
         center_y_line = avg_y + int(h_ref/2)
@@ -159,7 +146,6 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
         for col_idx in range(5):
             expected_x = int(min_x + (col_idx * step_x))
             
-            # Tenta casar contorno existente
             matched = None
             for c in row_cnts:
                 cx = cv2.boundingRect(c)[0]
@@ -172,7 +158,6 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
                 cv2.drawContours(mask, [matched], -1, 255, -1)
                 found_contours.append(matched)
             else:
-                # Cria bolha virtual se não achou (para casos preenchidos demais)
                 radius = int(avg_w / 2)
                 cv2.circle(mask, (expected_x + radius, center_y_line), radius, 255, -1)
                 found_contours.append(None)
@@ -181,7 +166,6 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
             total_pixels = cv2.countNonZero(mask)
             pixel_counts.append(total_pixels)
 
-        # Decisão
         max_pixels = max(pixel_counts)
         if max_pixels > 150:
             bubbled_idx = pixel_counts.index(max_pixels)
@@ -196,24 +180,19 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
         total += 1
         
         # --- DESENHO ---
-        # 1. Desenha resposta do aluno
         if bubbled_idx is not None:
             color = (0, 255, 0) if is_correct else (0, 0, 255)
             cnt = found_contours[bubbled_idx]
             if cnt is not None:
                 cv2.drawContours(out_img, [cnt], -1, color, 3)
             else:
-                # Desenho da grade virtual
                 expected_x = int(min_x + (bubbled_idx * step_x))
                 radius = int(avg_w / 2)
                 cv2.circle(out_img, (expected_x + radius, center_y_line), radius+2, color, 3)
 
-        # 2. Se errou, mostra a correta (Caixa Azul)
         if not is_correct:
             correct_idx = OPTIONS.index(correct_char)
             expected_x_corr = int(min_x + (correct_idx * step_x))
-            
-            # Desenha retângulo azul
             cv2.rectangle(out_img, 
                           (expected_x_corr - 5, center_y_line - 15), 
                           (expected_x_corr + int(avg_w) + 5, center_y_line + 15), 
@@ -229,11 +208,11 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
     return results, score, total
 
 # --- Interface ---
-st.set_page_config(page_title="Corretor OMR V6 Final", layout="wide")
-st.title("📝 Corretor de Gabarito (V6 - Clusterização)")
+st.set_page_config(page_title="Corretor OMR V8 - Excel", layout="wide")
+st.title("📝 Corretor de Gabarito (V8)")
 
-# Sidebar com Cache Fix
-st.sidebar.header("Gabarito Professor!")
+# Sidebar
+st.sidebar.header("Gabarito")
 key_left = {}
 key_right = {}
 
@@ -242,13 +221,11 @@ with st.sidebar.form("key_form"):
     with c1:
         st.subheader("27-39")
         for q in QUESTION_RANGES["left"]:
-            # key alterada para forçar reset do cache
-            key_left[q] = st.selectbox(f"Q{q}", OPTIONS, index=0, key=f"L_v6_{q}") 
+            key_left[q] = st.selectbox(f"Q{q}", OPTIONS, index=0, key=f"L_v8_{q}") 
     with c2:
         st.subheader("40-52")
         for q in QUESTION_RANGES["right"]:
-            # Index=1 (B) e key alterada para forçar reset
-            key_right[q] = st.selectbox(f"Q{q}", OPTIONS, index=1, key=f"R_v6_{q}") 
+            key_right[q] = st.selectbox(f"Q{q}", OPTIONS, index=1, key=f"R_v8_{q}") 
     st.form_submit_button("Atualizar Gabarito")
 
 # Main
@@ -268,7 +245,7 @@ if uploaded:
         raw_cnts = find_bubbles(edged, img_area)
         
         if len(raw_cnts) > 0:
-            # 2. Separar Colunas (Mediana X)
+            # 2. Separar Colunas
             all_xs = [cv2.boundingRect(c)[0] for c in raw_cnts]
             mid_x = np.median(all_xs)
             
@@ -285,12 +262,28 @@ if uploaded:
             final_total = tot_l + tot_r
             
             st.divider()
+            
+            # --- ÁREA NOVA: RESPOSTAS PARA EXCEL ---
             st.header(f"Nota Final: {final_score} / {final_total}")
+            
+            # Extração e formatação
+            all_answers = res_l + res_r
+            
+            # Formata com TABULAÇÃO (\t) para colar em células separadas
+            excel_string = "\t".join([item["Aluno"] for item in all_answers])
+            
+            st.subheader("Para Excel (Copie e Cole na 1ª Célula)")
+            st.info("Clique no ícone de copiar no canto da caixa abaixo. Depois, clique na primeira célula da sua planilha e cole.")
+            st.code(excel_string, language="text")
+            
+            st.divider()
             
             c1, c2 = st.columns(2)
             with c1:
-                st.dataframe(pd.DataFrame(res_l + res_r), height=600, use_container_width=True)
+                st.subheader("Tabela de Conferência")
+                st.dataframe(pd.DataFrame(all_answers), height=600, use_container_width=True)
             with c2:
-                st.image(out_img, caption="Correção Final", channels="BGR")
+                st.subheader("Correção Visual")
+                st.image(out_img, caption="Gabarito Marcado", channels="BGR")
         else:
             st.error("Não foi possível detectar bolhas.")
