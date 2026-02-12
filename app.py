@@ -233,7 +233,7 @@ st.set_page_config(page_title="Corretor OMR V6 Final", layout="wide")
 st.title("📝 Corretor de Gabarito (V6 - Clusterização)")
 
 # Sidebar com Cache Fix
-st.sidebar.header("Gabarito")
+st.sidebar.header("Gabarito Professor!")
 key_left = {}
 key_right = {}
 
