@@ -208,11 +208,11 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
     return results, score, total
 
 # --- Interface ---
-st.set_page_config(page_title="Corretor OMR V8 - Excel", layout="wide")
-st.title("📝 Corretor de Gabarito (V8)")
+st.set_page_config(page_title="Corretor de Gabarito OMR by Alexandre Siqueira", layout="wide")
+st.title("📝 Corretor de Gabarito (by Lizzera)")
 
 # Sidebar
-st.sidebar.header("Gabarito")
+st.sidebar.header("Gabarito Professor!")
 key_left = {}
 key_right = {}
 
