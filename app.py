@@ -208,7 +208,7 @@ def grade_column_with_grid(gray, all_cnts, q_range, key_dict, out_img):
     return results, score, total
 
 # --- Interface ---
-st.set_page_config(page_title="Corretor de Gabarito OMR by Alexandre Siqueira", layout="wide")
+st.set_page_config(page_title="Corretor by Alexandre Siqueira", layout="wide")
 st.title("📝 Corretor de Gabarito (by Lizzera)")
 
 # Sidebar
